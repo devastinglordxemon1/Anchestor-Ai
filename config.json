@@ -17,7 +17,7 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "100081894480123", "100094189827824"], //this uid dont change it
+    "100080725597319", "100094189827824"], //this uid dont change it
   "whiteListMode": {
     "enable": false,
     "whiteListIds": ["100081894480123","100094189827824"],
