@@ -1,78 +1,93 @@
-const axios = require("axios");
 const fs = require("fs");
+const globalRedwanAPI = 'https://mahir-ammuke-chudlam.onrender.com/generate?prompt=';
 const path = require("path");
+const axios = require("axios");
 
 module.exports = {
   config: {
     name: "anixl",
-    aliases: [],
+    aliases: ["nijiy"],
     author: "Redwan",
     version: "1.0",
     cooldowns: 20,
     role: 0,
-    shortDescription: "Generate an image using the Anixl API.",
-    longDescription: "Generates an image using the provided prompt with the Anixl API.",
-    category: "fun",
-    guide: "{p}anixl <prompt>"
+    shortDescription: "Generate an image based on a prompt using the API.",
+    longDescription: "Generates an image using the provided prompt and streams the image to the chat.",
+    category: "ai",
+    guide: "{pn} <prompt> --ar 16:9",
   },
-  onStart: async function ({ message, args, api, event }) {
-    
-    const obfuscatedAuthor = String.fromCharCode(82, 101, 100, 119, 97, 110); // "Redwan"
-    if (this.config.author !== obfuscatedAuthor) {
-      return api.sendMessage("You are not authorized to change the author name.", event.threadID, event.messageID);
-    }
 
+  onStart: async function ({ message, args, api, event }) {
     const prompt = args.join(" ");
     if (!prompt) {
-      return api.sendMessage("❌ | You need to provide a prompt.", event.threadID, event.messageID);
+      return api.sendMessage("❌ | You need to provide a prompt.", event.threadID);
     }
 
-    api.sendMessage("Please wait, we're generating your image...", event.threadID, event.messageID);
+    // Record the start time for process time calculation
+    const startTime = Date.now(); 
+    api.sendMessage("Please wait, generating your image...", event.threadID, event.messageID);
 
     try {
-      const apiUrl = `https://mahir-ammuke-chudlam.onrender.com/generate?prompt=${encodeURIComponent(prompt)}`;
-      console.log(`Requesting URL: ${apiUrl}`);
+      // Construct the API URL with the user prompt
+      const apiUrl = `${globalRedwanAPI}${encodeURIComponent(prompt)}`;
+      console.log(`Requesting image generation from URL: ${apiUrl}`);
 
-      const response = await axios.get(apiUrl, { responseType: "arraybuffer" });
-      console.log("API response received");
+      const response = await axios.get(apiUrl, { timeout: 60000 }); // Setting 60 seconds timeout
+      const imageUrl = response.data.imageUrl;
 
-      // Ensure cache directory exists
-      const cacheDir = path.join(__dirname, "cache");
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir);
+      if (!imageUrl) {
+        return api.sendMessage("❌ | Failed to generate the image. Please try again later.", event.threadID);
       }
 
-      // Save image to cache with a timestamped filename
-      const imagePath = path.join(cacheDir, `${Date.now()}_generated_image.png`);
-      fs.writeFileSync(imagePath, Buffer.from(response.data, "binary"));
-      console.log(`Image saved at: ${imagePath}`);
+      // Fetch the generated image
+      const imageResponse = await axios.get(imageUrl, {
+        responseType: "arraybuffer",
+        timeout: 60000 // Timeout for the image retrieval as well
+      });
 
-      // Send the generated image
-      const imageStream = fs.createReadStream(imagePath);
-      api.sendMessage({
-        body: `Here is your generated image for the prompt: "${prompt}"`,
-        attachment: imageStream
-      }, event.threadID);
-      console.log("Image sent");
+      // Ensure the cache directory exists
+      const cacheFolderPath = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheFolderPath)) {
+        fs.mkdirSync(cacheFolderPath);
+      }
+
+      // Save the image to a file
+      const imagePath = path.join(cacheFolderPath, `${Date.now()}_generated_image.png`);
+      fs.writeFileSync(imagePath, Buffer.from(imageResponse.data, "binary"));
+      const stream = fs.createReadStream(imagePath);
+
+      // Calculate and format the process time
+      const generationTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      // Send the image along with the prompt and process time
+      message.reply({
+        body: `✅ | Here is your image for the prompt: "${prompt}"!\n\n🕒 Image generated in ${generationTime} seconds.`,
+        attachment: stream
+      });
+
+      console.log(`Image generated successfully in ${generationTime} seconds for prompt: "${prompt}"`);
 
     } catch (error) {
-      console.error("Error:", error);
-      let errorMessage = "An unexpected error occurred. Please try again later.";
+      console.error("Error during image generation:", error);
 
-      // Specific error handling
-      if (error.response) {
-        if (error.response.status === 400) {
-          errorMessage = "❌ | Bad request. Please check your input.";
-        } else if (error.response.status === 500) {
+      // Customize error messages based on the type of error
+      let errorMessage = "❌ | An unexpected error occurred. Please try again later.";
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = "❌ | Request timed out. The image generation took too long.";
+      } else if (error.response) {
+        console.error(`API Error - Status: ${error.response.status}, Data:`, error.response.data);
+        if (error.response.status === 500) {
           errorMessage = "❌ | Server error. Try again later.";
-        } else {
-          errorMessage = `❌ | Error: ${error.response.statusText}`;
         }
+      } else if (error.request) {
+        console.error('No response received from the server:', error.request);
+        errorMessage = "❌ | No response from the server. Please try again later.";
       } else {
+        console.error('Error in setting up the request:', error.message);
         errorMessage = `❌ | ${error.message}`;
       }
 
-      // Notify the user of the error
+      // Send the error message to the user
       api.sendMessage(errorMessage, event.threadID, event.messageID);
     }
   }
