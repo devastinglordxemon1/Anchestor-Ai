@@ -28,21 +28,22 @@ module.exports = {
     api.sendMessage("Please wait, generating your image...", event.threadID, event.messageID);
 
     try {
-      // Request the image generation using the updated API
+      // Request the image generation using the updated API with 2 minutes timeout
       const apiUrl = `${globalRedwanAPI}/generate?prompt=${encodeURIComponent(prompt)}`;
       console.log(`Requesting image generation from URL: ${apiUrl}`);
 
-      const response = await axios.get(apiUrl, { timeout: 60000 }); // Setting 60 seconds timeout
+      // Increase timeout to 120 seconds for image generation
+      const response = await axios.get(apiUrl, { timeout: 120000 });
       const imageUrl = response.data.imageUrl;
 
       if (!imageUrl) {
         return api.sendMessage("❌ | Failed to generate the image. Please try again later.", event.threadID);
       }
 
-      // Fetch the generated image
+      // Fetch the generated image with 2 minutes timeout
       const imageResponse = await axios.get(imageUrl, {
         responseType: "arraybuffer",
-        timeout: 60000 // Timeout for the image retrieval as well
+        timeout: 120000 // Increase timeout for the image retrieval
       });
 
       // Ensure the cache directory exists
