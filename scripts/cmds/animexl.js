@@ -1,5 +1,5 @@
 const fs = require("fs");
-const globalRedwanAPI = 'https://mahir-ammuke-chudlam.onrender.com/generate?prompt=';
+const globalRedwanAPI = 'https://anime-xl-api.onrender.com';
 const path = require("path");
 const axios = require("axios");
 
@@ -11,7 +11,7 @@ module.exports = {
     version: "1.0",
     cooldowns: 20,
     role: 0,
-    shortDescription: "Generate an image based on a prompt using the API.",
+    shortDescription: "Generate an image based on a prompt using the XL API.",
     longDescription: "Generates an image using the provided prompt and streams the image to the chat.",
     category: "ai",
     guide: "{pn} <prompt> --ar 16:9",
@@ -28,8 +28,8 @@ module.exports = {
     api.sendMessage("Please wait, generating your image...", event.threadID, event.messageID);
 
     try {
-      // Construct the API URL with the user prompt
-      const apiUrl = `${globalRedwanAPI}${encodeURIComponent(prompt)}`;
+      // Request the image generation using the updated API
+      const apiUrl = `${globalRedwanAPI}/generate?prompt=${encodeURIComponent(prompt)}`;
       console.log(`Requesting image generation from URL: ${apiUrl}`);
 
       const response = await axios.get(apiUrl, { timeout: 60000 }); // Setting 60 seconds timeout
